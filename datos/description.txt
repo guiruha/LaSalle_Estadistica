@@ -1,0 +1,20 @@
+status: Status of existing checking account 
+duration: Duration in month 
+credit.hist: Credit history 
+purpose: Purpose 
+credit.amo: Credit amount 
+savings: Savings account/bonds 
+employed.time: Present employment since 
+installment: Installment rate in percentage of disposable income 
+status.sex: Personal status and sex 
+debtors: Other debtors / guarantors 
+residence.time: Present residence since 
+property: Property 
+age: Age in years 
+installment2: Other installment plans 
+housing: Housing 
+num.credits: Number of existing credits at this bank 
+job: Job 
+num.people: Number of people being liable to provide maintenance for 
+telephone: Telephone 
+foreign: foreign worker 

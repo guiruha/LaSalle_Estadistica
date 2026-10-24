@@ -3,3 +3,7 @@
 __pycache__/
 .ipynb_checkpoints/
 tmp/
+
+*_sol.ipynb
+/recursos
+*.pptx

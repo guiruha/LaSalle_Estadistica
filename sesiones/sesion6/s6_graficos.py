@@ -3,18 +3,55 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+from matplotlib.ticker import PercentFormatter
 from IPython.display import display
 
 from s6_evaluacion import evaluar, tabla_confusion
 
 
-def dibujar_barrido(resultados, titulo):
-    """Acierto observado para cada k; no realiza selección independiente."""
-    fig, ax = plt.subplots()
-    ax.plot(resultados.index, resultados.iloc[:, 0], "o-")
-    ax.set(xlabel="Número de vecinos (k)", ylabel="Proporción de aciertos", title=titulo,
-           xticks=resultados.index)
-    ax.grid(alpha=0.2)
+def dibujar_barrido(resultados, titulo, referencia=None):
+    """Acierto observado por k, con referencia opcional; no selecciona un modelo."""
+    valores = resultados.iloc[:, 0]
+    fig, ax = plt.subplots(figsize=(8, 4))
+    ax.plot(valores.index, valores, marker="o", linewidth=2, color="steelblue", label="KNN")
+    if referencia is not None:
+        ax.axhline(referencia, color="darkorange", linestyle="--", linewidth=1.5,
+                   label=f"Referencia mayoritaria ({referencia:.1%})")
+    mejor_k = valores.idxmax()
+    mejor_valor = valores.loc[mejor_k]
+    ax.scatter([mejor_k], [mejor_valor], color="firebrick", zorder=3)
+    ax.annotate(f"{mejor_valor:.1%}", (mejor_k, mejor_valor), xytext=(0, 9),
+                textcoords="offset points", ha="center", fontsize=9)
+    ax.set(xlabel="Número de vecinos (k)", ylabel="Acierto", title=titulo,
+           xticks=valores.index, ylim=(0, 1))
+    ax.yaxis.set_major_formatter(PercentFormatter(1))
+    ax.grid(axis="y", alpha=0.25)
+    ax.set_axisbelow(True)
+    ax.legend(frameon=False)
+    fig.tight_layout()
+    plt.show()
+
+
+def dibujar_confusion(tabla, titulo):
+    """Muestra una matriz de confusión anotada: predicciones en filas, realidad en columnas."""
+    valores = tabla.to_numpy()
+    ancho = max(5, 0.8 * len(tabla.columns))
+    alto = max(4, 0.65 * len(tabla.index))
+    fig, ax = plt.subplots(figsize=(ancho, alto))
+    imagen = ax.imshow(valores, cmap="Blues", aspect="auto")
+    ax.set(xticks=np.arange(len(tabla.columns)), xticklabels=tabla.columns,
+           yticks=np.arange(len(tabla.index)), yticklabels=tabla.index,
+           xlabel="Clase real", ylabel="Clase predicha", title=titulo)
+    ax.tick_params(axis="x", labelrotation=35)
+    plt.setp(ax.get_xticklabels(), ha="right")
+    limite = valores.max() / 2 if valores.size else 0
+    for fila in range(valores.shape[0]):
+        for columna in range(valores.shape[1]):
+            etiqueta = f"{int(valores[fila, columna]):,}".replace(",", "\u202f")
+            ax.text(columna, fila, etiqueta, ha="center", va="center",
+                    color="white" if valores[fila, columna] > limite else "black", fontsize=9)
+    fig.colorbar(imagen, ax=ax, label="Número de registros")
+    fig.tight_layout()
     plt.show()
 
 
@@ -39,23 +76,22 @@ def explorar_cp1(k, *, ajuste, reales, entrenamiento, clases_train, semilla, col
     display(tabla_confusion(reales, prediccion), evaluar(reales, prediccion))
     seleccion = np.random.default_rng(semilla).choice(len(entrenamiento),
                 size=min(1000, len(entrenamiento)), replace=False)
-    fig, ax = plt.subplots(figsize=(9, 3))
+    fig, ax = plt.subplots(figsize=(9, 3.5))
+    rng = np.random.default_rng(semilla)
     for j, clase in enumerate(np.unique(clases_train)):
         posiciones = seleccion[clases_train.iloc[seleccion].to_numpy() == clase]
-        ax.scatter(entrenamiento.iloc[posiciones, 0], np.full(len(posiciones), clase),
-                   s=15, alpha=0.35, label=f"churn {clase}", color=colores[j % len(colores)])
-    ax.set(xlabel="CP1", ylabel="Clase", yticks=np.unique(clases_train), title=f"Entrenamiento · k={k}")
-    ax.legend()
+        jitter = rng.uniform(-0.08, 0.08, size=len(posiciones))
+        ax.scatter(entrenamiento.iloc[posiciones, 0], clase + jitter,
+                   s=18, alpha=0.3, label=f"churn {clase} · n mostrado={len(posiciones)}",
+                   color=colores[j % len(colores)], edgecolors="none")
+    ax.set(xlabel="Primera componente principal (CP1)", ylabel="Clase real",
+           yticks=np.unique(clases_train), yticklabels=[str(c) for c in np.unique(clases_train)],
+           ylim=(min(clases_train) - 0.35, max(clases_train) + 0.35),
+           title=f"Distribución de entrenamiento en CP1 · k={k}")
+    ax.grid(axis="x", alpha=0.2)
+    ax.legend(frameon=False, loc="upper right")
+    fig.tight_layout()
     plt.show()
-
-
-def explorar_rechazo(k, minimo, *, ajuste, reales):
-    """Conserva la regla de votos mínimos y muestra también los rechazos."""
-    if minimo > k:
-        display("El mínimo de votos debe ser menor o igual que k.")
-        return
-    prediccion = ajuste.predecir(k=k, minimo=minimo)
-    display(tabla_confusion(reales, prediccion, incluir_rechazos=True), evaluar(reales, prediccion))
 
 
 def explorar_kernel_knn(datos, kernel, k, *, originales, cp1, reales):
@@ -99,38 +135,24 @@ def explorar_probabilidades(inicio, cantidad, *, probabilidades, mapa_colores):
 
 
 def panel_medias(variables, titulo, *, modelo, importancia, color):
-    """Hasta nueve medias por clase, leídas del ajuste base recibido."""
-    fig, ejes = plt.subplots(3, 3, figsize=(12, 9), constrained_layout=True)
+    """Hasta nueve medias y desviaciones por clase, leídas del ajuste base recibido."""
+    fig, ejes = plt.subplots(3, 3, figsize=(13, 9), constrained_layout=True)
     for ax, variable in zip(ejes.flat, variables):
         medias = modelo.medias[variable]
-        ax.bar(np.arange(len(medias)), medias, color=color)
+        desviaciones = modelo.desviaciones[variable]
+        posiciones = np.arange(len(medias))
+        ax.bar(posiciones, medias, yerr=desviaciones, capsize=2, color=color,
+               alpha=0.82, edgecolor="white", linewidth=0.5)
         ax.set(title=f"{variable} · Gini {importancia[variable]:.3f}",
-               xticks=np.arange(len(medias)), xticklabels=range(1, len(medias)+1),
-               xlabel="Clase", ylabel="Media")
+               xticks=posiciones, xticklabels=[str(clase).replace("Class_", "") for clase in medias.index],
+               xlabel="Clase", ylabel="Media ± desviación típica")
+        ax.tick_params(axis="x", labelrotation=35)
+        ax.grid(axis="y", alpha=0.2)
+        ax.set_axisbelow(True)
     for ax in list(ejes.flat)[len(variables):]:
         ax.set_visible(False)
     fig.suptitle(titulo)
     plt.show()
-
-
-def explorar_medias(pagina, *, predictores, panel):
-    """Recorre las características en su orden original, de nueve en nueve."""
-    comienzo = (pagina-1)*9
-    variables = list(predictores[comienzo:comienzo+9])
-    panel(variables, f"Medias por clase · página {pagina}")
-
-
-def explorar_gini(umbral, *, importancia, X_train, y_train, X_test, reales, modelo_clase):
-    """Explora un filtro real, ajustando un modelo local sin modificar el base."""
-    seleccion = importancia.index[importancia > umbral].tolist()
-    if not seleccion:
-        display("Ninguna variable supera este umbral.")
-        return
-    modelo = modelo_clase().fit(X_train[seleccion], y_train)
-    prediccion = modelo.predict(X_test)
-    display(pd.Series({"Variables seleccionadas": len(seleccion),
-                       "Proporción de aciertos": np.mean(prediccion.to_numpy() == reales.to_numpy())}))
-    display(importancia.loc[seleccion].sort_values(ascending=False).to_frame())
 
 
 def explorar_densidad(variable, cerca_de_cero, clase, *, modelo, colores):

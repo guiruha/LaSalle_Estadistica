@@ -13,23 +13,6 @@ def crear_control_knn(explorar, n_clientes):
         cliente=widgets.IntSlider(value=0, min=0, max=n_clientes-1, description="Cliente", continuous_update=False))
 
 
-def crear_control_cp1(explorar):
-    def actualizar(k):
-        return explorar(k=k)
-
-    return widgets.interactive(actualizar,
-        k=widgets.IntSlider(value=1, min=1, max=21, step=2, description="Vecinos", continuous_update=False))
-
-
-def crear_control_rechazo(explorar):
-    def actualizar(k, minimo):
-        return explorar(k=k, minimo=minimo)
-
-    return widgets.interactive(actualizar,
-        k=widgets.IntSlider(value=2, min=1, max=21, description="Vecinos", continuous_update=False),
-        minimo=widgets.IntSlider(value=2, min=0, max=21, description="Voto mínimo", continuous_update=False))
-
-
 def crear_control_kernel_knn(explorar):
     def actualizar(datos, kernel, k):
         return explorar(datos=datos, kernel=kernel, k=k)
@@ -55,24 +38,6 @@ def crear_control_probabilidades(explorar, n_productos):
     return widgets.interactive(actualizar,
         inicio=widgets.IntSlider(value=0, min=0, max=n_productos-1, description="Inicio", continuous_update=False),
         cantidad=widgets.IntSlider(value=50, min=10, max=100, step=10, description="Filas", continuous_update=False))
-
-
-def crear_control_medias(explorar, n_variables):
-    def actualizar(pagina):
-        return explorar(pagina=pagina)
-
-    return widgets.interactive(actualizar,
-        pagina=widgets.IntSlider(value=1, min=1, max=(n_variables+8)//9,
-                                 description="Página", continuous_update=False))
-
-
-def crear_control_gini(explorar):
-    def actualizar(umbral):
-        return explorar(umbral=umbral)
-
-    return widgets.interactive(actualizar,
-        umbral=widgets.FloatSlider(value=0.5, min=0, max=0.9, step=0.05,
-                                  description="Gini mínimo", continuous_update=False))
 
 
 def crear_control_densidad(explorar, variables, clases):
